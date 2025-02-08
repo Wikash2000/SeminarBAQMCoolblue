@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
-import joblib
 import shap
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.inspection import PartialDependenceDisplay
 
@@ -14,11 +11,11 @@ from sklearn.inspection import PartialDependenceDisplay
 # DATA LOADING & PREPROCESSING
 #----------------------------------------------------------------------------------------------------------------------
 
-file_path = "Broadcasting_data_peak_impact.xlsx"
-data = pd.read_excel(file_path)
+#file_path = "Broadcasting_data_peak_impact.xlsx"
+file_path = "SHAPinput.csv"
+data = pd.read_csv(file_path)
 
-data['datetime'] = pd.to_datetime(data['date'] + ' ' + data['time'],
-                                            format='%m/%d/%Y %I:%M:%S %p')
+data['Datetime'] = pd.to_datetime(data['Datetime'], errors='coerce')
 
 # Extract useful datetime features
 data['hour'] = data['datetime'].dt.hour
