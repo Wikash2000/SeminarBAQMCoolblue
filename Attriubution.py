@@ -11,7 +11,6 @@ from sklearn.inspection import PartialDependenceDisplay
 # DATA LOADING & PREPROCESSING
 #----------------------------------------------------------------------------------------------------------------------
 
-#file_path = "Broadcasting_data_peak_impact.xlsx"
 file_path = "SHAPinput.csv"
 data = pd.read_csv(file_path)
 
