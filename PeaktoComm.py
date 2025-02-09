@@ -7,69 +7,93 @@ This file takes as input raw traffic and counterfactual traffic values and attri
 
 import pandas as pd
 
-peaks = pd.read_csv('C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis.csv')
+peaks = pd.read_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis.csv')
 peaks["Datetime"] = pd.to_datetime(peaks["Datetime"])
-Commercial = pd.read_csv("C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/Web + broadcasting data - Broadcasting data.csv", sep=";")
+Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
 Commercial['Datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],format='%m/%d/%Y %I:%M:%S %p') 
-Commercial_max = Commercial.loc[Commercial.groupby('Datetime')['indexed_gross_rating_point'].idxmax()]
+Commercial = Commercial.loc[Commercial.groupby('Datetime')['indexed_gross_rating_point'].idxmax()]
+Commercial = Commercial.sort_values(by='Datetime')
+Commercial['commercial_id'] = range(1, len(Commercial) + 1)
 
-Merged_data = pd.merge(peaks, Commercial_max, on='Datetime', how='left')
+Merged_data = pd.merge(peaks, Commercial, on='Datetime', how='left')
+Merged_data['commercial'] = Merged_data['Datetime'].isin(Commercial['Datetime']).astype(int)
+Merged_data = Merged_data[['Datetime', 'Actual Prediction', 'CF Prediction', 'commercial', 'indexed_gross_rating_point', 'commercial_id']]
 
-def attribute_peaks_to_comm(df, threshold_c=5, effect_window=3):
-    """
-    Attributes traffic peaks to commercials based on presence and GRP weighting.
+import pandas as pd
 
-    Parameters:
-    - df: Pandas DataFrame with columns:
-        ['datetime', 'actual_traffic', 'predicted_traffic', 'commercial', 'commercial_id', 'GRP']
-    - threshold_c: The threshold below which the effect is considered to have faded.
-    - effect_window: Number of minutes the effect of an ad lasts.
+# Assuming `data` is your input DataFrame with columns:
+# ['timestamp', 'actual', 'counterfactual', 'tv_commercial_indicator', 'tv_commercial_viewership', 'commercial_id']
 
-    Returns:
-    - DataFrame with assigned impact per commercial.
-    """
+import pandas as pd
+
+import pandas as pd
+
+def calculate_uplift(data):
+    # Initialize a list to store results for each commercial
+    uplift_results = []
     
-    df = df.sort_values("datetime").reset_index(drop=True)
-    df["impact"] = df["actual_traffic"] - df["predicted_traffic"]
-    df["assigned_impact"] = 0.0  # Initialize impact assignment
-    commercial_impacts = []  # Store results per commercial
-
-    for idx, row in df[df["commercial"] == 1].iterrows():
-        commercial_id = row["commercial_id"]
-        grp = row["GRP"]
-        start_time = row["datetime"]
+    # Variables to track the uplift sum, active commercials, and their viewership
+    uplift_sum = 0
+    active_commercials = []
+    active_viewership = []
+    
+    # To track if we are in an uplift period
+    in_uplift_period = False
+    
+    # Iterate over the data by timestamp
+    for index, row in data.iterrows():
+        actual_traffic = row['Actual Prediction']
+        counterfactual_traffic = row['CF Prediction']
+        uplift = actual_traffic - counterfactual_traffic
         
-        # Track impact window
-        impact_sum = 0
-        assigned_rows = []
+        if in_uplift_period:
+            if uplift > 0.0001:
+                uplift_sum += uplift  # Accumulate the uplift
+                
+                # Track commercials airing during this period
+                if row['commercial'] == 1 and row['commercial_id'] not in active_commercials:
+                    active_commercials.append(row["commercial_id"])  # Add commercial airing in this period
+                    active_viewership.append(row['indexed_gross_rating_point'])  # Track its viewership
+                    
+            else:
+                if len(active_commercials) > 0:
+                    total_viewership = sum(active_viewership)
+                    for i in range(len(active_commercials)):
+                        commercial_index = active_commercials[i]
+                        viewership = active_viewership[i]
+                        if total_viewership > 0:
+                            commercial_uplift = uplift_sum * (viewership / total_viewership)
+                        else:
+                            commercial_uplift = uplift_sum
+                        # Append the result for the current commercial
+                        uplift_results.append({
+                            'commercial_id': commercial_index,
+                            'uplift': commercial_uplift
+                        })
+                in_uplift_period = False
+                uplift_sum = 0
+                active_commercials = []
+                active_viewership = []
         
-        for i in range(idx, len(df)):
-            if abs(df.at[i, "impact"]) < threshold_c:
-                break  # Stop summing when the effect fades
+        # If we are not in an uplift period but a commercial airs, start the uplift measuring period
+        if row['commercial'] == 1 and not in_uplift_period:
+            in_uplift_period = True  # Start a new uplift period
+            uplift_sum = uplift  # Initialize uplift sum with current uplift
+            active_commercials.append(row["commercial_id"])  # Start tracking this commercial
+            active_viewership.append(row['indexed_gross_rating_point'])  # Track the viewership for this commercial
             
-            assigned_rows.append(i)
-            impact_sum += df.at[i, "impact"]
+        # If we are in an uplift period, continue measuring uplift and track commercials
+        
+    
+   
+    # Convert the uplift results to a DataFrame
+    uplift_df = pd.DataFrame(uplift_results)
+    return uplift_df
 
-        if impact_sum == 0:
-            continue
+# Example usage with your data (assuming your data is loaded into a DataFrame 'data'):
+uplift_df = calculate_uplift(Merged_data)
+final_output = pd.merge(uplift_df, Commercial, on='commercial_id', how='left')
+final_output = final_output[['Datetime', 'commercial_id', 'uplift', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after', 'spotlength']]
+final_output.to_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/SHAPinput.csv', index=False)
 
-        # Find other active commercials in this period
-        end_time = df.at[assigned_rows[-1], "datetime"]
-        active_ads = df[(df["datetime"] >= start_time) & 
-                        (df["datetime"] <= end_time + pd.Timedelta(minutes=effect_window)) & 
-                        (df["commercial"] == 1)]
-
-        if len(active_ads) == 1:
-            # No overlap, full impact goes to this commercial
-            df.loc[assigned_rows, "assigned_impact"] += impact_sum
-            commercial_impacts.append((commercial_id, impact_sum))
-        else:
-            # Overlapping commercials: distribute by GRP proportion
-            total_grp = active_ads["GRP"].sum()
-            for _, ad in active_ads.iterrows():
-                share = ad["GRP"] / total_grp
-                impact_for_ad = impact_sum * share
-                df.loc[assigned_rows, "assigned_impact"] += impact_for_ad
-                commercial_impacts.append((ad["commercial_id"], impact_for_ad))
-
-    return df, pd.DataFrame(commercial_impacts, columns=["commercial_id", "impact"])
+print(uplift_df)

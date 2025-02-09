@@ -82,33 +82,40 @@ def make_counterfactual(dataset):
     return dataset_cf
 
 def load_data(version):
-    Website = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_with_product_types")
-    Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Web + broadcasting data - Broadcasting data.csv", sep=";")
-    # Combine 'Date' and 'Time' into a single datetime column
-    Commercial['datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],
-                                            format='%m/%d/%Y %I:%M:%S %p') 
+    Website = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_cleaned_full.csv")
     # Ensure 'datetime' column in Websites in datetime format
     Website['datetime'] = pd.to_datetime(Website['datetime'], errors='coerce')
     #Add a column for total traffic
-    Website['traffic'] = Website['visits_web'] + Website['visits_app'] 
-  
+    Website['traffic'] = Website['visits_web'] + Website['visits_app']
+    
+    
+    Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
+    # Combine 'Date' and 'Time' into a single datetime column
+    Commercial['datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],
+                                            format='%m/%d/%Y %I:%M:%S %p') 
     
     # Merge the two dataframes (to get all commercial variables)
     if (version == 1):
-        Website1 = Website.groupby(['datetime'])['traffic'].sum().reset_index() #sum app and web visits
+        Website1 = Website.copy()
         Website1['commercial'] = Website1['datetime'].isin(Commercial['datetime']).astype(int)
         Commercial_max = Commercial.loc[Commercial.groupby('datetime')['indexed_gross_rating_point'].idxmax()]
         # Now merge the datasets
         Merged_data = pd.merge(Website1, Commercial_max, on='datetime', how='left')
         # Select only the columns you want to keep
         Merged_data = Merged_data[['datetime', 'traffic', 'commercial', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after', 'spotlength']]    
-        Merged_data['channel'].fillna("0", inplace=True)
-        Merged_data['indexed_gross_rating_point'].fillna(0, inplace=True)
-        Merged_data['position_in_break'].fillna("0", inplace=True)
-        Merged_data['program_cat_before'].fillna("0", inplace=True)
-        Merged_data['program_cat_after'].fillna("0", inplace=True)
-        Merged_data['spotlength'].fillna("0", inplace=True)
-        data = Merged_data
+        #fill na with 0 
+        Merged_data = Merged_data.assign(
+        channel=Merged_data['channel'].fillna("0"),
+        indexed_gross_rating_point=Merged_data['indexed_gross_rating_point'].fillna(0),
+        position_in_break=Merged_data['position_in_break'].fillna("0"),
+        program_cat_before=Merged_data['program_cat_before'].fillna("0"),
+        program_cat_after=Merged_data['program_cat_after'].fillna("0"),
+        spotlength=Merged_data['spotlength'].fillna("0")
+        )  
+
+        # filter period without commercial data
+        Merged_data = Merged_data[Merged_data['datetime'] >= pd.Timestamp("2023-09-11")]
+        data = Merged_data.copy()
     if (version == 2):
         Website2 = Website.groupby(['datetime'])['visits_web'].sum().reset_index() #web visits only
         Website2['commercial'] = Website2['datetime'].isin(Commercial['datetime']).astype(int)
@@ -151,7 +158,7 @@ def load_data(version):
         data[f"position_in_break_lag_{lag}"] = data["position_in_break"].shift(lag)
         data[f"spotlength_lag_{lag}"] = data["spotlength"].shift(lag)
 
-    data["traffic_lag"] = data['traffic'].rolling(window=50).mean().shift(1)
+    data["traffic_lag"] = data['traffic'].rolling(window=60,min_periods=1).mean().shift(1)
 
     # List of columns to convert (including original and lagged variables)
     categorical_columns = [
@@ -167,7 +174,7 @@ def load_data(version):
     # Apply the function to convert the columns to string
     convert_columns_to_str(data, categorical_columns)
 
-    data = data[51:].reset_index(drop = True)
+    data = data[61:].reset_index(drop = True)
     
     data_cf = make_counterfactual(data)
     
@@ -210,7 +217,7 @@ train_set, val_set = train_test_split(train_data,test_size=0.2,shuffle=False)
 test_set_cf = make_counterfactual(test_set)
 
 #HIERONDER TEST SIZE AANPASSEN voor Otte
-full_train_data,full_val_data = train_test_split(data, test_size=0.2, shuffle=False)
+full_train_data,full_val_data = train_test_split(data, test_size=0.1, shuffle=False)
 # Define the TimeSeriesDataSet
 max_encoder_length = 10  # Use past 10mins for encoding
 max_prediction_length = 1  # Predict one step ahead
@@ -425,7 +432,6 @@ progress_bar = CustomProgressBar()
 # cf_full_set_fit = scaler.inverse_transform(tft.predict(full_dataset_cf))
 
 
-# best_model_path = trainer.checkpoint_callback.best_model_path
 #----------------------------------------------------------------------------------------------------------------------------------------
 #IS-Training+Predictions
 #---------------------------------------------------------------------------------------------------------------------------------------
@@ -457,8 +463,24 @@ trainer = pl.Trainer(
 
 trainer.fit(tft, full_train_dataloader, full_val_dataloader)
 
+tft =TemporalFusionTransformer.load_from_checkpoint(r"c:\users\nicho\onedrive - erasmus university rotterdam\master\seminar\lightning_logs\version_203\checkpoints\epoch=5-step=13602.ckpt")
+
+
 full_set_fit = scaler.inverse_transform(tft.predict(full_dataset))
 cf_full_set_fit = scaler.inverse_transform(tft.predict(full_dataset_cf))
+
+best_model_path = trainer.checkpoint_callback.best_model_path
+
+# for col in true_categoricals:
+#     full_categories = set(data[col].unique())
+#     train_categories = set(full_train_data[col].unique())
+    
+#     print(f"Column: {col}")
+#     print(f"Categories in full dataset but not in training: {full_categories - train_categories}")
+#     print(f"Categories in training but not in full dataset: {train_categories - full_categories}")
+#     print("-" * 50)
+   
+
 
 
 #---------------------------------------------------------------------------------------------------------------------------------------
@@ -478,7 +500,7 @@ plt.xlabel("Datetime", fontsize=14)
 plt.ylabel("Traffic", fontsize=14)
 plt.legend(fontsize=12)
 
-plt.xlim(pd.Timestamp("2023-10-14 18:00:00"),pd.Timestamp("2023-10-14 23:00:00"))
+plt.xlim(pd.Timestamp("2023-11-22 18:00:00"),pd.Timestamp("2023-11-22 23:00:00"))
 
 df = pd.DataFrame({'Datetime': data["datetime"][10:],'Actual Prediction': full_set_fit[:,0], 'CF Prediction': cf_full_set_fit[:,0]})
 
