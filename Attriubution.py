@@ -17,14 +17,22 @@ data = pd.read_csv(file_path)
 data['Datetime'] = pd.to_datetime(data['Datetime'], errors='coerce')
 
 # Extract useful datetime features
-data['hour'] = data['datetime'].dt.hour
-data['day_of_week'] = data['datetime'].dt.dayofweek
-data['month'] = data['datetime'].dt.month
+data['hour'] = data['Datetime'].dt.hour
+data['day_of_week'] = data['Datetime'].dt.dayofweek
+data['month'] = data['Datetime'].dt.month
+
+# Function to evaluate 'spotlength' expressions and convert to numeric
+def evaluate_spotlength(spotlength_str):
+    numbers = spotlength_str.split(' + ')  # Split the string by '+'
+    return sum(map(int, numbers))  # Convert the split parts into integers and return the sum
+
+# Apply the function to the 'spotlength' column to convert it to numeric values
+data['spotlength_numeric'] = data['spotlength'].apply(evaluate_spotlength)
 
 # Define input (X) and output (y)
 categorical_features = ['day_of_week', 'month', 'channel', 'position_in_break', 'program_cat_before', 'program_cat_after']
-numerical_features = ['indexed_gross_rating_point', 'hour']
-target = 'peak_impact'  # Adjusted target column name
+numerical_features = ['indexed_gross_rating_point', 'hour', 'spotlength_numeric']  # Add the new spotlength feature
+target = 'uplift'
 
 X = data[categorical_features + numerical_features]
 y = data[target]
@@ -32,7 +40,7 @@ y = data[target]
 # Preprocessing: Encode categorical variables and scale numerical features
 preprocessor = ColumnTransformer(
     transformers=[
-        ('cat', OneHotEncoder(drop='first'), categorical_features),
+        ('cat', OneHotEncoder(drop=None), categorical_features),  # Keep all categories
         ('num', StandardScaler(), numerical_features)
     ]
 )
@@ -55,12 +63,36 @@ explainer = shap.Explainer(lambda x: y[:len(x)], X_encoded_dense)  # Lambda func
 # Compute SHAP values
 shap_values = explainer(X_encoded_dense)
 
-# The base value of SHAP is the average of all the predicted peak_impact values, and it should remain constant across the entire dataset.
-base_value = np.mean(y)
+# **Set SHAP values to zero for missing features**
+shap_values.values[X_encoded_dense == 0] = 0  # Ensuring missing features have zero SHAP contribution
 
-# Manually assign the base value to SHAP (to ensure consistency with the mean of peak_impact)
-shap_values.base_values = np.array([base_value] * len(shap_values.values))
+print("Baseline values for first 10 observations:\n", shap_values.base_values[:10])
+print("Mean of y:", np.mean(y))
 
+
+# Compute the sum of SHAP values for each observation
+shap_sum = shap_values.values.sum(axis=1)
+
+# Extract baseline values
+baseline = shap_values.base_values
+
+# Compute total contribution
+total_contribution = baseline + shap_sum
+
+pd.set_option('display.max_rows', None)  # Show all rows
+pd.set_option('display.max_columns', None)  # Show all columns
+pd.set_option('display.width', None)  # No column wrapping
+
+# Compare with actual output (y)
+comparison_df = pd.DataFrame({
+    "Baseline": baseline,
+    "Sum of SHAP Values": shap_sum,
+    "Predicted (Baseline + SHAP)": total_contribution,
+    "Actual Peak Impact (y)": y
+})
+
+# Print first 10 rows to check
+print(comparison_df.head(10))
 
 #----------------------------------------------------------------------------------------------------------------------
 # SHAP DATAFRAME
@@ -81,47 +113,31 @@ shap_df = pd.DataFrame(shap_array, columns=feature_names)
 pd.set_option('display.max_rows', None)  # Show all rows
 pd.set_option('display.max_columns', None)  # Show all columns
 pd.set_option('display.width', None)  # No column wrapping
-pd.set_option('display.float_format', '{:.6f}'.format)  # Set decimal precision
 
 # Display the first few rows of the SHAP feature importance
 print("\nSHAP Feature Importance:\n", shap_df.head(10))  # Display the first 10 rows of the SHAP values DataFrame
 
 # ----------------------------------------------------------------------------------------------------------------------
-# FEATURE IMPORTANCE BAR PLOT
+# SHAP FEATURE IMPORTANCE BAR PLOT
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Create a RandomForest model (using a non-predictive model)
-rf_model = RandomForestRegressor(random_state=42)
-rf_model.fit(X_encoded_dense, y)  # Fit model on encoded data
+# Compute SHAP global feature importance using mean absolute values
+shap_importance = np.abs(shap_values.values).mean(axis=0)
 
-# Get feature importances from the RandomForest model
-importances = rf_model.feature_importances_
+# Create a DataFrame for sorting
+shap_importance_df = pd.DataFrame({'Feature': feature_names, 'Mean Absolute SHAP': shap_importance})
 
-# Create a bar plot for feature importance
+# Sort features by decreasing importance
+shap_importance_df = shap_importance_df.sort_values(by='Mean Absolute SHAP', ascending=False)
+
+# Plot SHAP feature importance in descending order
 plt.figure(figsize=(10, 6))
-plt.barh(feature_names, importances)
-plt.xlabel('Feature Importance')
+plt.barh(shap_importance_df['Feature'], shap_importance_df['Mean Absolute SHAP'])
+plt.xlabel('Mean Absolute SHAP Value')
 plt.ylabel('Feature')
-plt.title('Feature Importance from RandomForest')
-plt.gca().invert_yaxis()  # Invert the y-axis to have the most important feature at the top
+plt.title('SHAP Feature Importance (Sorted)')
+plt.gca().invert_yaxis()  # Invert y-axis to have the most important feature at the top
 plt.show()
-
-# ----------------------------------------------------------------------------------------------------------------------
-# AVERAGE SHAP VALUE BAR PLOT
-# ----------------------------------------------------------------------------------------------------------------------
-
-# Calculate the average absolute SHAP value for each feature
-average_shap_values = np.mean(np.abs(shap_values.values), axis=0)
-
-# Create a bar plot for average SHAP value per feature
-plt.figure(figsize=(10, 6))
-plt.barh(feature_names, average_shap_values)
-plt.xlabel('Average Absolute SHAP Value')
-plt.ylabel('Feature')
-plt.title('Average SHAP Value for Each Feature')
-plt.gca().invert_yaxis()  # Invert the y-axis to have the most impactful feature at the top
-plt.show()
-
 
 #----------------------------------------------------------------------------------------------------------------------
 # SHAP SUMMARY PLOT
@@ -193,9 +209,12 @@ plt.show()
 # This helps confirm if relationships are linear, non-linear, or have interactions
 # PDP plots show the marginal effect of a feature on the predicted outcome. Unlike SHAP (which explains individual predictions)
 #----------------------------------------------------------------------------------------------------------------------
+# Create a RandomForest model (using a non-predictive model)
+rf_model = RandomForestRegressor(random_state=42)
+rf_model.fit(X_encoded_dense, y)  # Fit model on encoded data
 
 # Display PDPs for selected features
-features_to_plot = ['num__hour', 'num__indexed_gross_rating_point']  # You can modify this list
+features_to_plot = ['num__spotlength_numeric', 'num__indexed_gross_rating_point']  # You can modify this list
 
 # Plot the PDP for the selected features
 fig, ax = plt.subplots(figsize=(10, 6))
