@@ -183,27 +183,6 @@ shap.dependence_plot(
 plt.show()  # Show the plot
 
 #----------------------------------------------------------------------------------------------------------------------
-# SHAP WATERFALL PLOT: visualizes how different features contributed to a specific prediction made by your model.
-# The predicted output (peak impact) -> SHAP explains the model's prediction with these features not the actual observed outcome.
-# The expected model output across all data (average prediction) represents the baseline prediction if no feature values were known.
-#----------------------------------------------------------------------------------------------------------------------
-
-# Let's select an individual row to explain, e.g., the first row
-row_index = 0  # You can change this to any index to inspect other rows
-
-# Extract the SHAP explanation for the specific row
-shap_explanation = shap.Explanation(
-    values=shap_values.values[row_index],  # SHAP contributions for the selected row
-    base_values=shap_values.base_values[row_index],  # Base value for the prediction
-    feature_names=preprocessor.get_feature_names_out()  # The feature names for the transformed data
-)
-
-# Generate the SHAP waterfall plot for the selected row
-shap.waterfall_plot(shap_explanation)
-
-plt.show()
-
-#----------------------------------------------------------------------------------------------------------------------
 # Partial Dependence Plots (PDPs)
 # PDPs show how predictions change when a specific feature is varied while keeping all others constant
 # This helps confirm if relationships are linear, non-linear, or have interactions
