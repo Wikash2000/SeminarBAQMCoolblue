@@ -8,15 +8,16 @@ Created on Wed Feb 19 17:55:57 2025
 import pandas as pd
 
 
-
 def calculate_uplift(version):
-    Commercial = pd.read_csv("C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
-    peaks = pd.read_csv(f'C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis_{version}.csv')
+    Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
+    peaks = pd.read_csv(f'C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis_{version}.csv')
     peaks["Datetime"] = pd.to_datetime(peaks["Datetime"])
     
     Commercial['Datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],format='%m/%d/%Y %I:%M:%S %p') 
     Commercial = Commercial.loc[Commercial.groupby('Datetime')['indexed_gross_rating_point'].idxmax()]
     Commercial = Commercial.sort_values(by='Datetime')
+    Commercial['same_program'] = (Commercial['program_before'] == Commercial['program_after']).astype(int)
+    Commercial['tag_ons'] = Commercial['spotlength'].apply(lambda x: "0" if x == '15' else "1" if x == '15 + 10' else "2" if x in ['15 + 10 + 5', '15 + 10 + 10'] else "none")
     Commercial['commercial_id'] = range(1, len(Commercial) + 1)
 
     Merged_data = pd.merge(peaks, Commercial, on='Datetime', how='left')
@@ -41,7 +42,7 @@ def calculate_uplift(version):
         uplift = actual_traffic - counterfactual_traffic
         
         if in_uplift_period:
-            if uplift > 0.0001:
+            if uplift > 0.001:
                 uplift_sum += uplift  # Accumulate the uplift
                 
                 # Track commercials airing during this period
@@ -75,22 +76,19 @@ def calculate_uplift(version):
             uplift_sum = uplift  # Initialize uplift sum with current uplift
             active_commercials.append(row["commercial_id"])  # Start tracking this commercial
             active_viewership.append(row['indexed_gross_rating_point'])  # Track the viewership for this commercial
-            
-        # If we are in an uplift period, continue measuring uplift and track commercials
-        
-    
+       
    
     # Convert the uplift results to a DataFrame
     uplift_df = pd.DataFrame(uplift_results)
     final_output = pd.merge(uplift_df, Commercial, on='commercial_id', how='left')
-    final_output = final_output[['Datetime', 'commercial_id', 'uplift', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after', 'spotlength']]
-    final_output.to_csv(f'C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/SHAPinput_{version}.csv', index=False)
+    final_output = final_output[['Datetime', 'commercial_id', 'uplift', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after','flight_description','same_program','tag_ons']]
+    final_output.to_csv(f'C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/SHAPinput_{version}.csv', index=False)
 
     return uplift_df
 
 
-#version = "visits_web_scaled"
-version = "visits_app_scaled"
+version = "visits_web_scaled"
+#version = "visits_app_scaled"
 
 uplift_df = calculate_uplift(version)
 # Example usage with your data (assuming your data is loaded into a DataFrame 'data'):
