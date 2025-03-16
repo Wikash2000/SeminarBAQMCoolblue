@@ -14,10 +14,10 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.inspection import PartialDependenceDisplay
 
-# Set global font size for readability
+#set global fontsize
 plt.rcParams.update({
-    'axes.titlesize': 16,
-    'axes.labelsize': 14,
+    'axes.titlesize': 18,
+    'axes.labelsize': 15,
     'xtick.labelsize': 13,
     'ytick.labelsize': 14,
     'legend.fontsize': 12
