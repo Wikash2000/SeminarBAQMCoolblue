@@ -14,17 +14,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.inspection import PartialDependenceDisplay
 
-#set global fontsize
-plt.rcParams.update({
-    'axes.titlesize': 18,
-    'axes.labelsize': 15,
-    'xtick.labelsize': 13,
-    'ytick.labelsize': 14,
-    'legend.fontsize': 12
-})
-
-version = "visits_web_scaled"
-#version = "visits_app_scaled"
+#version = "visits_web_scaled"
+version = "visits_app_scaled"
 
 medium = version.split("_")[1]
 
@@ -32,13 +23,13 @@ file_path = f"SHAPinput_{version}.csv"
 data = pd.read_csv(file_path)
 
 data.loc[data['uplift'] < 0, 'uplift'] = 0
-data['norm_peak'] = data['uplift'] / (data['indexed_gross_rating_point']+1)
+data['norm_peak'] = data['uplift'] / (data['indexed_gross_rating_point'] + 1)
 
 outcome = "uplift"
 
-#--------------------------------------------------------------------------------------------------------
-#Print top 20 commercials for uplift and normalized peak
-#--------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
+# Print top 20 commercials for uplift and normalized peak
+# --------------------------------------------------------------------------------------------------------
 
 filtered_data = data.loc[data['flight_description'] != 'Coolblue_2023_11_Black Friday wk 45-47']
 
@@ -47,12 +38,11 @@ sorted_data = filtered_data.sort_values(by=outcome, ascending=False)
 
 top20 = sorted_data.head(20)
 # Export the top 20 rows of sorted data to a CSV file
-top20.to_csv(f'top_20_{version}_{outcome}_filtered.csv',index=False)
+top20.to_csv(f'top_20_{version}_{outcome}_filtered.csv', index=False)
 
-
-#--------------------------------------------------------------------------------------------------------
-#Build models
-#--------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
+# Build models
+# --------------------------------------------------------------------------------------------------------
 
 # Feature engineering
 data['Datetime'] = pd.to_datetime(data['Datetime'], errors='coerce')
@@ -78,12 +68,12 @@ model = XGBRegressor(
     use_label_encoder=False
 )
 
-#--------------------------------------------------------------------------------------------------------
-#Model1 Get GRP pdp
-#--------------------------------------------------------------------------------------------------------
-target_column = 'uplift' 
-X = data.drop(columns=['norm_peak','uplift','Datetime', 'commercial_id'])  
-y = data[target_column]  
+# --------------------------------------------------------------------------------------------------------
+# Model1 Get GRP pdp
+# --------------------------------------------------------------------------------------------------------
+target_column = 'uplift'
+X = data.drop(columns=['norm_peak', 'uplift', 'Datetime', 'commercial_id'])
+y = data[target_column]
 
 cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
@@ -101,27 +91,27 @@ encoded_feature_names = encoder.get_feature_names_out()
 
 # Convert to DataFrame
 X_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names, dtype='float32')
-X_encoded.columns = [col if col != 'remainder__indexed_gross_rating_point' else 'Indexed GRP' for col in X_encoded.columns]
 
 model.fit(X_encoded, y)
-# Generate the PDP for the updated column name
+
+# GRP PDP
 fig, ax = plt.subplots(figsize=(12, 6))
 PartialDependenceDisplay.from_estimator(
-    model, X_encoded, features=['Indexed GRP'],  # Use the shortened version
+    model, X_encoded, features=['remainder__indexed_gross_rating_point'],
     grid_resolution=100, ax=ax
 )
 
-ax.set_title("Partial Dependence Plot for Indexed Gross Rating Point")  # Set title
+# Set plot title and show
+ax.set_title("Partial Dependence Plot for Indexed Gross Rating Point")
 plt.show()
 
-#--------------------------------------------------------------------------------------------------------
-#Model2 Get time of day PDP
-#--------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
+# Model2 Get time of day PDP
+# --------------------------------------------------------------------------------------------------------
 
-target_column = 'norm_peak' 
-X = data.drop(columns=['norm_peak','uplift','indexed_gross_rating_point','Datetime', 'commercial_id'])  
-y = data[target_column]  
-
+target_column = 'norm_peak'
+X = data.drop(columns=['norm_peak', 'uplift', 'indexed_gross_rating_point', 'Datetime', 'commercial_id'])
+y = data[target_column]
 
 cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
@@ -139,29 +129,24 @@ encoded_feature_names = encoder.get_feature_names_out()
 
 # Convert to DataFrame
 X_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names, dtype='float32')
-X_encoded.columns = [col if col != 'remainder__time_of_day' else 'Time of day' for col in X_encoded.columns]
 
 model.fit(X_encoded, y)
 
-
-#Time of day PDP
+# Time of day PDP
 fig, ax = plt.subplots(figsize=(12, 6))
 PartialDependenceDisplay.from_estimator(
-    model, X_encoded, features=['Time of day'], 
+    model, X_encoded, features=['remainder__time_of_day'],
     grid_resolution=100, ax=ax
 )
 ax.set_title("Partial Dependence Plot for Time of Day")
 plt.show()
 
-
-
-#--------------------------------------------------------------------------------------------------------
-#Model3 Get categorcial PDP + FI
-#--------------------------------------------------------------------------------------------------------
-target_column = 'norm_peak' 
-X = data.drop(columns=['norm_peak','uplift','indexed_gross_rating_point','time_of_day', 'Datetime', 'commercial_id'])  
-y = data[target_column]  
-
+# --------------------------------------------------------------------------------------------------------
+# Model3 Get categorcial PDP + FI
+# --------------------------------------------------------------------------------------------------------
+target_column = 'norm_peak'
+X = data.drop(columns=['norm_peak', 'uplift', 'indexed_gross_rating_point', 'time_of_day', 'Datetime', 'commercial_id'])
+y = data[target_column]
 
 cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
@@ -180,41 +165,11 @@ encoded_feature_names = encoder.get_feature_names_out()
 # Convert to DataFrame
 X_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names, dtype='float32')
 
-# Fit the model
 model.fit(X_encoded, y)
 
-# Define category label mappings
-category_label_mapping = {
-    col: col.split('_')[-1]  # Extracts only the category name (e.g., "category_A" → "A")
-    for cat in cat_features for col in X_encoded.columns if cat in col
-}
-
-# Special mapping for day_of_week
-day_of_week_mapping = {
-    '0': 'Monday', '1': 'Tuesday', '2': 'Wednesday', '3': 'Thursday',
-    '4': 'Friday', '5': 'Saturday', '6': 'Sunday'
-}
-
-# Special mapping for month
-month_mapping = {
-    '1': 'January', '2': 'February', '3': 'March', '4': 'April', '5': 'May',
-    '6': 'June', '7': 'July', '8': 'August', '9': 'September',
-    '10': 'October', '11': 'November', '12': 'December'
-}
-
-# Update mapping for specific categorical variables
-for col in X_encoded.columns:
-    if 'day_of_week' in col:
-        day_value = col.split('_')[-1]  # Extract numeric day
-        category_label_mapping[col] = day_of_week_mapping.get(day_value, day_value)
-    elif 'month' in col:
-        month_value = col.split('_')[-1]  # Extract numeric month
-        category_label_mapping[col] = month_mapping.get(month_value, month_value)
-
-
-# Categorical PDP with renamed labels
+# Categorical PDP
 for cat in cat_features:
-    cat_cols = [col for col in X_encoded.columns if cat in col]
+    cat_cols = [col for col in X_encoded.columns if col.startswith(f'cat__{cat}_')]
 
     pd_values = []
     for col in cat_cols:
@@ -223,20 +178,22 @@ for cat in cat_features:
         X_temp[col] = 1  # Activate only this category
         pd_values.append(model.predict(X_temp).mean())  # Get mean prediction
 
-    # Generate clean labels
-    x_labels = [category_label_mapping[col] for col in cat_cols]
+    # Remove 'cat__category_name_' and keep only the actual value
+    clean_labels = [col.replace(f'cat__{cat}_', '') for col in cat_cols]
 
     # Plot Partial Dependence as a bar plot
     x_positions = np.arange(len(cat_cols))
     plt.figure(figsize=(12, 6))
     plt.bar(x_positions, pd_values)
-    plt.xticks(x_positions, x_labels, rotation=45, ha="right")
+    plt.xticks(x_positions, clean_labels, rotation=45, ha="right")
     plt.xlabel(cat)
     plt.ylabel("Effect on Predicted Peak Impact")
     plt.title(f"Partial Dependence Plot for {cat}")
     plt.show()
 
+
 # Feature importance
+
 feature_importances = model.feature_importances_
 
 # Create a DataFrame with feature names and their importances
@@ -248,13 +205,18 @@ importance_df = pd.DataFrame({
 # Aggregating the importances for categorical features
 aggregated_importances = {}
 for cat in cat_features:
+    # Get all columns corresponding to the categories in this feature
     cat_cols = [col for col in X_encoded.columns if cat in col]
+
+    # Sum the importances of the categories in this feature
     aggregated_importances[cat] = importance_df[importance_df['feature'].isin(cat_cols)]['importance'].sum()
 
-# Convert to DataFrame and sort
-aggregated_importances_df = pd.DataFrame(
-    list(aggregated_importances.items()), columns=['Feature', 'Aggregated Importance']
-).sort_values(by='Aggregated Importance', ascending=True)
+# Convert the aggregated importances into a DataFrame for easier plotting
+aggregated_importances_df = pd.DataFrame(list(aggregated_importances.items()),
+                                         columns=['Feature', 'Aggregated Importance'])
+
+# Sort the features by their aggregated importance in descending order
+aggregated_importances_df = aggregated_importances_df.sort_values(by='Aggregated Importance', ascending=True)
 
 # Plot aggregated feature importances
 plt.figure(figsize=(10, 6))
@@ -262,3 +224,5 @@ plt.barh(aggregated_importances_df['Feature'], aggregated_importances_df['Aggreg
 plt.xlabel('Aggregated Importance')
 plt.title('Aggregated Feature Importances for Categorical Variables')
 plt.show()
+
+
