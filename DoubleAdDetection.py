@@ -5,11 +5,15 @@ Created on Wed Feb  5 18:17:42 2025
 @author: 531725ns
 """
 
+"""
+This file finds the ads that are aired at exactly the same time and removes them based on certain conditions. 
+The web traffic data at these points is subsequently adjusted.
+"""
 import pandas as pd
 import numpy as np
 
+#This function finds the duplicates and removes certain ones based on a heuristic
 def filter_duplicates(data):
-    # Load the Excel file
     df = data
     grouped_ads = df.groupby(['date', 'time'])
 
@@ -17,18 +21,18 @@ def filter_duplicates(data):
     group_list = []
     for (date,time), group in grouped_ads:
         group_grp = group['indexed_gross_rating_point'].sum()
-        #max_group_grp = group['indexed_gross_rating_point'].max()
         grp_list =[]
         grp_percent_list = []
         for index, row in group.iterrows():
             grp_list.append(row['indexed_gross_rating_point'])
             grp_percent_list.append(row['indexed_gross_rating_point']/group_grp)
-        if len(grp_list) >= 2 and min(grp_percent_list) > 0.1 and min(grp_list) > 2 :
+        if len(grp_list) >= 2 and min(grp_percent_list) > 0.1 and min(grp_list) > 2 : #remove only the ones that meet the conditions
             group_list.append(((date,time),group))
             
     return group_list
 
-def remove_duplicates_from_traffic(data, group_list):
+#this function removes the found duplicates from the commercial airings
+def remove_duplicates_from_commercials(data, group_list):
     # Extract the (date, time) pairs from DuplicateList
     to_remove = [item[0] for item in group_list]  # Get all (date, time) pairs
     
@@ -99,6 +103,6 @@ data.to_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Semin
 
 DuplicateList = filter_duplicates(Commercials)
 
-Cleaned_data = remove_duplicates_from_traffic(Commercials, DuplicateList)
+Cleaned_data = remove_duplicates_from_commercials(Commercials, DuplicateList)
 
 Cleaned_data.to_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv', index=False)
