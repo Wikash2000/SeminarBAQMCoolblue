@@ -30,6 +30,12 @@ data = pd.read_csv('web_data_with_product_types.csv')
 #data = pd.read_csv('web_data_outliers_removed.csv')
 #data = pd.read_csv('web_data_outlier_removed_incl_neg_peaks.csv')
 
+summary_stats1 = data['visits_app'].describe()
+summary_stats2 = data['visits_web'].describe()
+
+print(summary_stats1)
+print(summary_stats2)
+
 # Convert 'datetime' to a proper datetime object
 data['datetime'] = pd.to_datetime(data['datetime'])
 
