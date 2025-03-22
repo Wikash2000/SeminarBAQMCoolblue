@@ -1,0 +1,146 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+
+# ------------------------------------
+# 1. Load & Process Broadcasting Data (Commercials)
+# ------------------------------------
+
+broadcast_file = 'Web_broadcasting_data-Broadcasting_data.csv'
+broadcast_data = pd.read_csv(broadcast_file, delimiter=';')
+
+# Combine 'date' and 'time' into a single 'datetime' column
+broadcast_data['datetime'] = pd.to_datetime(
+    broadcast_data['date'] + ' ' + broadcast_data['time'],
+    format='%m/%d/%Y %I:%M:%S %p'
+)
+
+# Extract "minutes of the day"
+broadcast_data['minute_of_day'] = broadcast_data['datetime'].dt.hour * 60 + broadcast_data['datetime'].dt.minute
+
+# Handle midnight crossing
+broadcast_data['minute_of_day'] = broadcast_data['minute_of_day'].apply(lambda x: x + 1440 if x < 14 * 60 else x)
+
+# Define time range (2:30 PM to 2:00 AM)
+start_time, end_time = 14 * 60 + 30, 26 * 60
+filtered_minutes = broadcast_data[(broadcast_data['minute_of_day'] >= start_time) &
+                                  (broadcast_data['minute_of_day'] <= end_time)]['minute_of_day']
+
+# Print total commercials
+print("Total commercials in dataset:", len(broadcast_data))
+
+# Plot: Distribution of Commercials by Time (per minute)
+plt.figure(figsize=(12, 6))
+plt.hist(filtered_minutes, bins=(end_time - start_time), range=(start_time, end_time), color='dimgray', edgecolor='black')
+
+# X-axis labels per minute
+ticks = range(start_time, end_time + 1, 60)
+labels = [f"{(h-24 if h >= 24 else h)}:00" for h in range(14, 26)]
+plt.xticks(ticks=ticks, labels=labels)
+
+plt.xlabel('Time of Day')
+plt.ylabel('Number of Commercials')
+plt.title('Distribution of Commercials by Time (2:30 PM to 2:00 AM, per minute)')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------
+# 2. Load & Process Web/App Visit Data
+# ------------------------------------
+
+web_data_file = 'web_data_cleaned_full.csv'
+data = pd.read_csv(web_data_file, parse_dates=['datetime'])
+
+# Set datetime as index
+data.set_index('datetime', inplace=True)
+
+# Create total visits column
+data['visits_total'] = data['visits_app'] + data['visits_web']
+
+# Display dataset overview
+print("First few rows of data:\n", data.head())
+print("\nMissing values in dataset:\n", data.isnull().sum())
+
+# Drop missing values
+data.dropna(inplace=True)
+
+# ------------------------------------
+# 3. Perform Seasonal-Trend Decomposition
+# ------------------------------------
+
+for col in ['visits_app', 'visits_web', 'visits_total']:
+    print(f"\nPerforming Seasonal-Trend Decomposition for {col}...")
+    decomposition = sm.tsa.seasonal_decompose(data[col], model='additive', period=1440)
+
+    fig, axes = plt.subplots(4, 1, figsize=(11, 7))
+    decomposition.observed.plot(ax=axes[0], title=f"Observed ({col})")
+    decomposition.trend.plot(ax=axes[1], title=f"Trend ({col})")
+    decomposition.seasonal.plot(ax=axes[2], title=f"Seasonality ({col})")
+    decomposition.resid.plot(ax=axes[3], title=f"Residuals ({col})")
+
+    plt.tight_layout()
+    plt.show()
+
+# ------------------------------------
+# 4. Zoomed-In Seasonal-Trend Decomposition (Nov 10 - Nov 20)
+# ------------------------------------
+
+start_date, end_date = "2023-11-10", "2023-11-20"
+data_zoomed = data.loc[start_date:end_date]
+
+for col in ['visits_app', 'visits_web', 'visits_total']:
+    print(f"\nPerforming Seasonal-Trend Decomposition for {col} (Zoomed In)...")
+    decomposition = sm.tsa.seasonal_decompose(data_zoomed[col], model='additive', period=1440)
+
+    fig, axes = plt.subplots(4, 1, figsize=(11, 7))
+    decomposition.observed.plot(ax=axes[0], title=f"Observed ({col}) - Zoomed In")
+    decomposition.trend.plot(ax=axes[1], title=f"Trend ({col}) - Zoomed In")
+    decomposition.seasonal.plot(ax=axes[2], title=f"Seasonality ({col}) - Zoomed In")
+    decomposition.resid.plot(ax=axes[3], title=f"Residuals ({col}) - Zoomed In")
+
+    plt.tight_layout()
+    plt.show()
+
+# ------------------------------------
+# 5. Plot Web & App Visits by Product Type (Only if 'product_type' Exists)
+# ------------------------------------
+
+if 'product_type' in data.columns:
+    # Plot Web Visits by Product Type
+    category_data_web = data.groupby(['datetime', 'product_type'])['visits_web'].sum().reset_index()
+    pivoted_data_web = category_data_web.pivot(index='datetime', columns='product_type', values='visits_web').fillna(0)
+    pivoted_data_web['Total_Visits'] = pivoted_data_web.sum(axis=1)
+
+    plt.figure(figsize=(12, 6))
+    for category in pivoted_data_web.columns[:-1]:
+        plt.plot(pivoted_data_web.index, pivoted_data_web[category], label=category)
+    plt.plot(pivoted_data_web.index, pivoted_data_web['Total_Visits'], label='Total_Visits', linewidth=2, linestyle='--', color='black')
+
+    plt.xlabel('Datetime')
+    plt.ylabel('Visits (Web)')
+    plt.title('Website Visits by Product Type Over Time')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # Plot App Visits by Product Type
+    category_data_app = data.groupby(['datetime', 'product_type'])['visits_app'].sum().reset_index()
+    pivoted_data_app = category_data_app.pivot(index='datetime', columns='product_type', values='visits_app').fillna(0)
+    pivoted_data_app['Total_Visits'] = pivoted_data_app.sum(axis=1)
+
+    plt.figure(figsize=(12, 6))
+    for category in pivoted_data_app.columns[:-1]:
+        plt.plot(pivoted_data_app.index, pivoted_data_app[category], label=category)
+    plt.plot(pivoted_data_app.index, pivoted_data_app['Total_Visits'], label='Total_Visits', linewidth=2, linestyle='--', color='black')
+
+    plt.xlabel('Datetime')
+    plt.ylabel('Visits (App)')
+    plt.title('App Visits by Product Type Over Time')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+else:
+    print(" Warning: 'product_type' column not found in dataset. Skipping category plots.")
