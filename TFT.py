@@ -80,14 +80,14 @@ def make_counterfactual(dataset):
      return dataset_cf
 
 def load_data():
-   Website = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_cleaned_full.csv")
+   Website = pd.read_csv("web_data_cleaned_full.csv")
    # Ensure 'datetime' column in Websites in datetime format
    Website['datetime'] = pd.to_datetime(Website['datetime'], errors='coerce')
    #Add a column for total traffic
    Website['traffic'] = Website['visits_web'] + Website['visits_app']
    
    
-   Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
+   Commercial = pd.read_csv("Commercial_cleaned_full.csv")
    # Combine 'Date' and 'Time' into a single datetime column
    Commercial['datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],
                                            format='%m/%d/%Y %I:%M:%S %p') 
