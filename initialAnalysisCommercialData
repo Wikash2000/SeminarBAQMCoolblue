@@ -2,11 +2,59 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Load the dataset once (with semicolon separator)
-df = pd.read_csv('Web_broadcasting_data-Broadcasting_data.csv', sep=';')
+"""
+This script generates some relevant plots for the commercial data exxploration
+"""
+# ------------------------------------
+# 1. Commercials per time slot
+# ------------------------------------
 
-### --- FIRST PLOT: GRP Histogram ---
+broadcast_file = 'Web + broadcasting data - Broadcasting data.csv'
+broadcast_data = pd.read_csv(broadcast_file, delimiter=';')
+
+# Combine 'date' and 'time' into a single 'datetime' column
+broadcast_data['datetime'] = pd.to_datetime(
+    broadcast_data['date'] + ' ' + broadcast_data['time'],
+    format='%m/%d/%Y %I:%M:%S %p'
+)
+broadcast_data['time'] = pd.to_datetime(broadcast_data['time'], format='%I:%M:%S %p')
+
+
+# Extract "minutes of the day"
+broadcast_data['minute_of_day'] = broadcast_data['datetime'].dt.hour * 60 + broadcast_data['datetime'].dt.minute
+
+# Handle midnight crossing
+broadcast_data['minute_of_day'] = broadcast_data['minute_of_day'].apply(lambda x: x + 1440 if x < 14 * 60 else x)
+
+# Define time range (2:30 PM to 2:00 AM)
+start_time, end_time = 14 * 60 + 30, 26 * 60
+filtered_minutes = broadcast_data[(broadcast_data['minute_of_day'] >= start_time) &
+                                  (broadcast_data['minute_of_day'] <= end_time)]['minute_of_day']
+
+# Print total commercials
+print("Total commercials in dataset:", len(broadcast_data))
+
+# Plot: Distribution of Commercials by Time (per minute)
+plt.figure(figsize=(12, 6))
+plt.hist(filtered_minutes, bins=(end_time - start_time), range=(start_time, end_time), color='dimgray', edgecolor='black')
+
+# X-axis labels per minute
+ticks = range(start_time, end_time + 1, 60)
+labels = [f"{(h-24 if h >= 24 else h)}:00" for h in range(14, 26)]
+plt.xticks(ticks=ticks, labels=labels)
+
+plt.xlabel('Time of Day')
+plt.ylabel('Number of Commercials')
+plt.title('Distribution of Commercials by Time (2:30 PM to 2:00 AM, per minute)')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------
+# 2. GRP histogram
+# ------------------------------------
 # Convert 'indexed_gross_rating_point' to numeric
+df = broadcast_data
 grp_column = "indexed_gross_rating_point"
 df[grp_column] = pd.to_numeric(df[grp_column], errors='coerce')
 
@@ -43,7 +91,9 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)  # Keep horizontal grid lines
 plt.show()
 
 
-### --- SECOND PLOT: Daily Commercials Histogram ---
+# ------------------------------------
+# 3. Daily commercial histogram
+# ------------------------------------
 # Convert 'date' column to datetime format
 df['date'] = pd.to_datetime(df['date'], format='%m/%d/%Y', errors='coerce')
 
@@ -80,6 +130,60 @@ plt.xticks(pd.date_range(start=start_date, end=end_date, freq='MS'),
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 
 # Show the second plot
+plt.show()
+
+#-------------------------------------------------------------------------------------------------------------------------------
+# 4. Bar chart: Number of rows per unique channel
+#-------------------------------------------------------------------------------------------------------------------------------
+Commercial = df
+
+channel_counts = Commercial['channel'].value_counts()
+plt.figure(figsize=(12, 6))
+channel_counts.plot(kind='bar', color='black', edgecolor='black')
+plt.xlabel('Channel')
+plt.ylabel('Number of commercials')
+plt.title('Commercials per Channel over three months')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+
+#-------------------------------------------------------------------------------------------------------------------------------
+# 5. Line chart: Average GRP per time slot
+#-------------------------------------------------------------------------------------------------------------------------------
+avg_grp_per_time = Commercial.groupby(Commercial['time'].dt.time)['indexed_gross_rating_point'].mean().reset_index()
+avg_grp_per_time['time_str'] = avg_grp_per_time['time'].astype(str)
+
+plt.figure(figsize=(12, 6))
+plt.plot(avg_grp_per_time['time_str'], avg_grp_per_time['indexed_gross_rating_point'], color='black', linewidth=2, label='Average GRP')
+step = max(1, len(avg_grp_per_time) // 10)  # Ensure at least one label
+plt.xticks(ticks=np.arange(0, len(avg_grp_per_time), step=step), labels=avg_grp_per_time['time_str'][::step], rotation=45)
+plt.xlabel('Time Slot')
+plt.ylabel('Average GRP')
+plt.title('Average GRP per Time Slot')
+plt.grid(True)
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+#-------------------------------------------------------------------------------------------------------------------------------
+# 6. Average GRP per channel
+#-------------------------------------------------------------------------------------------------------------------------------
+avg_grp_per_channel = Commercial.groupby(Commercial['channel'])['indexed_gross_rating_point'].mean().reset_index()
+
+plt.figure(figsize=(12, 6))
+
+plt.bar(
+    avg_grp_per_channel['channel'],  # Use channel names as x-axis labels
+    avg_grp_per_channel['indexed_gross_rating_point'], 
+    color='black', edgecolor='black', label='Average GRP'
+)
+
+plt.xlabel('Channel')
+plt.ylabel('Average GRP')
+plt.title('Average GRP per Channel')
+plt.xticks(rotation=60)  # Rotate x-axis labels for better readability
+plt.tight_layout()
+plt.legend()
+plt.grid(axis='y', linestyle='--', alpha=0.7)  # Optional: Add a grid for clarity
 plt.show()
 
 
