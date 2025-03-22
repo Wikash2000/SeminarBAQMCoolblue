@@ -1,0 +1,85 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load the dataset once (with semicolon separator)
+df = pd.read_csv('Web_broadcasting_data-Broadcasting_data.csv', sep=';')
+
+### --- FIRST PLOT: GRP Histogram ---
+# Convert 'indexed_gross_rating_point' to numeric
+grp_column = "indexed_gross_rating_point"
+df[grp_column] = pd.to_numeric(df[grp_column], errors='coerce')
+
+# Count commercials with GRP = 0
+num_zero_grp = (df[grp_column] == 0).sum()
+print(f"Number of commercials with GRP = 0: {num_zero_grp}")
+
+# Exclude commercials with GRP = 0
+df_filtered = df[df[grp_column] > 0]
+
+# Define bins: (0,1], (1,2], ..., up to max GRP value
+max_grp = int(np.ceil(df_filtered[grp_column].max()))  # Round up to nearest integer
+bins = np.arange(0, max_grp + 1.1, 1)  # Ensure bins are (0,1], (1,2], ...
+
+# Create histogram for GRP
+plt.figure(figsize=(10, 5))
+plt.hist(df_filtered[grp_column], bins=bins, color='dimgray', edgecolor='black', alpha=0.7)
+
+# Formatting the GRP histogram
+plt.xlabel("Indexed GRP")
+plt.ylabel("Count of Commercials")
+plt.title("Distribution of Commercials by Indexed GRP (Excluding GRP = 0)")
+
+# Set X-axis ticks only at intervals of 10
+plt.xticks(np.arange(0, max_grp + 1, 10))
+
+# Add vertical grid lines at every 10 GRP units
+for x in np.arange(10, max_grp + 1, 10):
+    plt.axvline(x, color='black', linestyle='--', alpha=0.3)
+
+plt.grid(axis='y', linestyle='--', alpha=0.7)  # Keep horizontal grid lines
+
+# Show the first plot
+plt.show()
+
+
+### --- SECOND PLOT: Daily Commercials Histogram ---
+# Convert 'date' column to datetime format
+df['date'] = pd.to_datetime(df['date'], format='%m/%d/%Y', errors='coerce')
+
+
+# Print first few rows to verify correct parsing
+print(df[['date']].head())
+
+# Filter data for the range September 1 - December 31
+start_date = "2023-09-01"
+end_date = "2023-12-31"
+df_filtered = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+
+# Count number of commercials per day
+commercials_per_day = df_filtered.groupby('date').size()
+
+# Debugging: Print the counts to check if they exist
+print(commercials_per_day)
+
+
+
+# Create bar plot for daily commercials
+plt.figure(figsize=(12, 5))
+plt.bar(commercials_per_day.index, commercials_per_day.values, color='dimgray', edgecolor='black', alpha=0.7)
+
+# Formatting the daily commercials plot
+plt.xlabel("Date")
+plt.ylabel("Number of Commercials")
+plt.title("Daily Number of Commercials (Sep–Dec 2023)")
+
+# Fix X-axis formatting: Display months instead of every day
+plt.xticks(pd.date_range(start=start_date, end=end_date, freq='MS'),
+           labels=pd.date_range(start=start_date, end=end_date, freq='MS').strftime("%b"), rotation=0)
+
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Show the second plot
+plt.show()
+
+
