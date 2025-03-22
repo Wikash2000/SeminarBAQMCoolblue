@@ -2,51 +2,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
-# ------------------------------------
-# 1. Load & Process Broadcasting Data (Commercials)
-# ------------------------------------
-
-broadcast_file = 'Web_broadcasting_data-Broadcasting_data.csv'
-broadcast_data = pd.read_csv(broadcast_file, delimiter=';')
-
-# Combine 'date' and 'time' into a single 'datetime' column
-broadcast_data['datetime'] = pd.to_datetime(
-    broadcast_data['date'] + ' ' + broadcast_data['time'],
-    format='%m/%d/%Y %I:%M:%S %p'
-)
-
-# Extract "minutes of the day"
-broadcast_data['minute_of_day'] = broadcast_data['datetime'].dt.hour * 60 + broadcast_data['datetime'].dt.minute
-
-# Handle midnight crossing
-broadcast_data['minute_of_day'] = broadcast_data['minute_of_day'].apply(lambda x: x + 1440 if x < 14 * 60 else x)
-
-# Define time range (2:30 PM to 2:00 AM)
-start_time, end_time = 14 * 60 + 30, 26 * 60
-filtered_minutes = broadcast_data[(broadcast_data['minute_of_day'] >= start_time) &
-                                  (broadcast_data['minute_of_day'] <= end_time)]['minute_of_day']
-
-# Print total commercials
-print("Total commercials in dataset:", len(broadcast_data))
-
-# Plot: Distribution of Commercials by Time (per minute)
-plt.figure(figsize=(12, 6))
-plt.hist(filtered_minutes, bins=(end_time - start_time), range=(start_time, end_time), color='dimgray', edgecolor='black')
-
-# X-axis labels per minute
-ticks = range(start_time, end_time + 1, 60)
-labels = [f"{(h-24 if h >= 24 else h)}:00" for h in range(14, 26)]
-plt.xticks(ticks=ticks, labels=labels)
-
-plt.xlabel('Time of Day')
-plt.ylabel('Number of Commercials')
-plt.title('Distribution of Commercials by Time (2:30 PM to 2:00 AM, per minute)')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.tight_layout()
-plt.show()
 
 # ------------------------------------
-# 2. Load & Process Web/App Visit Data
+# 1. Load & Process Web/App Visit Data
 # ------------------------------------
 
 web_data_file = 'web_data_cleaned_full.csv'
@@ -66,7 +24,7 @@ print("\nMissing values in dataset:\n", data.isnull().sum())
 data.dropna(inplace=True)
 
 # ------------------------------------
-# 3. Perform Seasonal-Trend Decomposition
+# 2. Perform Seasonal-Trend Decomposition
 # ------------------------------------
 
 for col in ['visits_app', 'visits_web', 'visits_total']:
@@ -83,7 +41,7 @@ for col in ['visits_app', 'visits_web', 'visits_total']:
     plt.show()
 
 # ------------------------------------
-# 4. Zoomed-In Seasonal-Trend Decomposition (Nov 10 - Nov 20)
+# 3. Zoomed-In Seasonal-Trend Decomposition (Nov 10 - Nov 20)
 # ------------------------------------
 
 start_date, end_date = "2023-11-10", "2023-11-20"
@@ -103,7 +61,7 @@ for col in ['visits_app', 'visits_web', 'visits_total']:
     plt.show()
 
 # ------------------------------------
-# 5. Plot Web & App Visits by Product Type (Only if 'product_type' Exists)
+# 4. Plot Web & App Visits by Product Type (Only if 'product_type' Exists)
 # ------------------------------------
 
 if 'product_type' in data.columns:
