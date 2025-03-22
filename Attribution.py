@@ -5,6 +5,11 @@ Created on Thu Mar 13 11:52:13 2025
 @author: nicho
 """
 
+"""
+This script fits a second xgboost to attribute the uplift scores to specific features of the commercials, to understand which factors drive a successful commercial. 
+Interpretations of effect are provided by feature importance and partial dependence
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,6 +28,7 @@ plt.rcParams.update({
     'legend.fontsize': 12
 })
 
+#Select outcome variable
 version = "visits_web_scaled"
 #version = "visits_app_scaled"
 
@@ -40,7 +46,7 @@ outcome = "uplift"
 #Print top 20 commercials for uplift and normalized peak
 #--------------------------------------------------------------------------------------------------------
 
-filtered_data = data.loc[data['flight_description'] != 'Coolblue_2023_11_Black Friday wk 45-47']
+filtered_data = data.loc[data['flight_description'] != 'Coolblue_2023_11_Black Friday wk 45-47'] # sort if needed
 
 # Sort the filtered data by the chosen outcome in descending order
 sorted_data = filtered_data.sort_values(by=outcome, ascending=False)
@@ -104,7 +110,7 @@ X_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names, dtype='float3
 X_encoded.columns = [col if col != 'remainder__indexed_gross_rating_point' else 'Indexed GRP' for col in X_encoded.columns]
 
 model.fit(X_encoded, y)
-# Generate the PDP for the updated column name
+# Generate the PDP for GRP
 fig, ax = plt.subplots(figsize=(12, 6))
 PartialDependenceDisplay.from_estimator(
     model, X_encoded, features=['Indexed GRP'],  # Use the shortened version
@@ -115,49 +121,9 @@ ax.set_title("Partial Dependence Plot for Indexed Gross Rating Point")
 ax.set_ylabel("Average predicted uplift") # Set title
 plt.show()
 
-#--------------------------------------------------------------------------------------------------------
-#Model2 Get time of day PDP
-#--------------------------------------------------------------------------------------------------------
-
-target_column = 'norm_peak' 
-X = data.drop(columns=['norm_peak','uplift','indexed_gross_rating_point','Datetime', 'commercial_id'])  
-y = data[target_column]  
-
-
-cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-
-# Define One-Hot Encoder
-encoder = ColumnTransformer(
-    transformers=[('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False, drop=None), cat_features)],
-    remainder='passthrough'
-)
-
-# Fit and transform
-X_encoded = encoder.fit_transform(X)
-
-# Get feature names
-encoded_feature_names = encoder.get_feature_names_out()
-
-# Convert to DataFrame
-X_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names, dtype='float32')
-X_encoded.columns = [col if col != 'remainder__time_of_day' else 'Time of day' for col in X_encoded.columns]
-
-model.fit(X_encoded, y)
-
-
-#Time of day PDP
-fig, ax = plt.subplots(figsize=(12, 6))
-PartialDependenceDisplay.from_estimator(
-    model, X_encoded, features=['Time of day'], 
-    grid_resolution=100, ax=ax
-)
-ax.set_title("Partial Dependence Plot for Time of Day")
-plt.show()
-
-
 
 #--------------------------------------------------------------------------------------------------------
-#Model3 Get categorcial PDP + FI
+#Model2 Get categorcial PDP + FI
 #--------------------------------------------------------------------------------------------------------
 target_column = 'norm_peak' 
 X = data.drop(columns=['norm_peak','uplift','indexed_gross_rating_point','time_of_day', 'Datetime', 'commercial_id'])  
