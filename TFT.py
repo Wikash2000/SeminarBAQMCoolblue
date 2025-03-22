@@ -4,6 +4,9 @@ Created on Mon Mar 17 13:15:22 2025
 
 @author: nicho
 """
+"""
+This file fits a temporal fusion transformer to model web traffic data and evaluates its 1-step-ahead performance.
+"""
 
 import pandas as pd
 import numpy as np
@@ -89,18 +92,16 @@ def load_data():
    Commercial['datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],
                                            format='%m/%d/%Y %I:%M:%S %p') 
    Commercial['same_program'] = (Commercial['program_before'] == Commercial['program_after']).astype(int)
-   
-   
    Commercial['tag_ons'] = Commercial['spotlength'].apply(lambda x: "0" if x == '15' else "1" if x == '15 + 10' else "2" if x in ['15 + 10 + 5', '15 + 10 + 10'] else "none")
-   # Merge the two dataframes (to get all commercial variables)
-
+ 
    Website1 = Website.copy()
-   Website1['commercial'] = Website1['datetime'].isin(Commercial['datetime']).astype(int)
-   Commercial_max = Commercial.loc[Commercial.groupby('datetime')['indexed_gross_rating_point'].idxmax()]
+   Website1['commercial'] = Website1['datetime'].isin(Commercial['datetime']).astype(int) #binary commercial indicator
+   Commercial_max = Commercial.loc[Commercial.groupby('datetime')['indexed_gross_rating_point'].idxmax()] #Keep the commercial with highest grp if simultaneous airings
    # Now merge the datasets
    Merged_data = pd.merge(Website1, Commercial_max, on='datetime', how='left')
    # Select only the columns you want to keep
    Merged_data = Merged_data[['datetime', 'traffic', 'visits_app', 'visits_web', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after', 'flight_description','same_program','tag_ons']]    
+  
    #fill na with 0 
    Merged_data = Merged_data.assign(
    channel=Merged_data['channel'].fillna("0"),
@@ -148,7 +149,7 @@ def load_data():
    data["visits_app_lag"] = data['visits_app_scaled'].rolling(window=60,min_periods=1).mean().shift(1)
    
 
-   for lag in range(1, 6):  # Now generating 5 lags (1 to 5)
+   for lag in range(1, 6): 
        data[f"channel_lag_{lag}"] = data["channel"].shift(lag)
        data[f"indexed_gross_rating_point_lag_{lag}"] = data["indexed_gross_rating_point"].shift(lag)
        data[f"program_cat_before_lag_{lag}"] = data["program_cat_before"].shift(lag)
@@ -158,7 +159,7 @@ def load_data():
        data[f"same_program_lag_{lag}"] = data["same_program"].shift(lag)
        data[f"tag_ons_lag_{lag}"] = data["tag_ons"].shift(lag)
        
-   # List of columns to convert (including original and lagged variables)
+   # List of columns to convert to string format (including original and lagged variables)
    categorical_columns = [
    "hour", "day_of_week", "month",    "channel",
    "channel_lag_1", "channel_lag_2", "channel_lag_3", "channel_lag_4", "channel_lag_5",
@@ -208,7 +209,7 @@ lag = "visits_web_lag"
 # lag = "visits_app_lag"
 
 def main(version,lag):
-
+    #Categorical input for TFT
     true_categoricals = [
     "hour", "day_of_week", "month",    "channel",
     "channel_lag_1", "channel_lag_2", "channel_lag_3", "channel_lag_4", "channel_lag_5",
@@ -222,7 +223,7 @@ def main(version,lag):
     "same_program", "same_program_lag_1", "same_program_lag_2", "same_program_lag_3", "same_program_lag_4", "same_program_lag_5"
     ]
   
-  
+    #Continuous input for TFT
     true_continuous = [
         "hour_sin", "hour_cos", "day_sin", "day_cos", "indexed_gross_rating_point",
         "indexed_gross_rating_point_lag_1", "indexed_gross_rating_point_lag_2", "indexed_gross_rating_point_lag_3", "indexed_gross_rating_point_lag_4", "indexed_gross_rating_point_lag_5", lag
@@ -412,7 +413,7 @@ def main(version,lag):
     plt.show()
     
     # #---------------------------------------------------------------------------------------------------------------------------
-    # #NAIVE PLOT
+    # #NAIVE PLOTS
     # #-------------------------------------------------------------------------------------------------------------------------
     # Plot actual predictions
     plt.figure(figsize=(15, 8))
@@ -431,6 +432,6 @@ def main(version,lag):
     plt.tight_layout()
     plt.show()
 
-
+#Select outcome variable
 main("visits_web_scaled", "visits_web_lag")
 #main("visits_app_scaled", "visits_app_lag")
