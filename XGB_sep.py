@@ -4,7 +4,10 @@ Created on Wed Feb 19 18:18:41 2025
 
 @author: 531725ns
 """
-
+"""
+This file first evaluates an XGBoost on out of sample prediction of web traffic data and then refits the xgtboost to the full data, keeping 10% validation. 
+Next, we make true predictions as well as counterfactual predcitions. These predictions are later used to calcualte uplift in traffic caused by commercials.
+"""
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -59,14 +62,14 @@ def make_counterfactual(dataset):
 
 def load_data():
     #Load traffic data
-    Website = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_cleaned_full.csv")
+    Website = pd.read_csv("web_data_cleaned_full.csv")
     # Ensure 'datetime' column in Websites in datetime format
     Website['datetime'] = pd.to_datetime(Website['datetime'], errors='coerce')
     #Add a column for total traffic
     Website['traffic'] = Website['visits_web'] + Website['visits_app']
     
     #Load Commercial data
-    Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
+    Commercial = pd.read_csv("Commercial_cleaned_full.csv")
     # Combine 'Date' and 'Time' into a single datetime column
     Commercial['datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],
                                             format='%m/%d/%Y %I:%M:%S %p') 
@@ -286,7 +289,7 @@ def main(version,lag):
     df = pd.DataFrame({'Datetime': data["datetime"], 'Actual Prediction': predictions, 'CF Prediction': predictions_cf})
     
     # Save to CSV
-    df.to_csv(f'C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis_{version}.csv', index=False)
+    df.to_csv(f'PeakAnalysis_{version}.csv', index=False)
     
     
 main("visits_web_scaled", "visits_app_lag")
