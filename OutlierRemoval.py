@@ -153,4 +153,4 @@ for index, row in negative_peaks.iterrows():
     modified_data.loc[replace_indices, 'visits_web'] = np.clip(random_visits_web, a_min=0, a_max=None)
 
 # Save final dataset
-modified_data.to_csv('C:/Users/531725ns/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_outlier_removed.csv', index=False)
+modified_data.to_csv('web_data_outlier_removed.csv', index=False)
