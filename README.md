@@ -20,7 +20,13 @@ Below, we outline the purpose of each file in this repository and provide the co
   This file generates plots comparing the data before and after cleaning, highlighting the differences.  
 
 - ## *initialAnalysisWebData.py*  
-  This file provides visualizations of the web data, which are also included in the report.  
+  This file provides visualizations of the web data, which are also included in the report. 
+
+- ## *GRP_Distribution_and_DailyCounts.py*  
+  Plots histograms describing the distribution and daily volume of commercial data.
+ 
+- ## *STA_Analysis.py*  
+  This file performs seasonal-trend decomposition on web and app visit data to uncover trends and patterns. It also visualizes the distribution of TV commercials across specific time intervals.
 
 - ## *DoubleAdDetection.py*  
   Detects ads that were aired at the same time and flags them accordingly.  
