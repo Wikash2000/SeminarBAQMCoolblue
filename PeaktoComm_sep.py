@@ -13,8 +13,8 @@ For overlapping commercials, uplift is assigned proportionally to GRP.
 import pandas as pd
 
 def calculate_uplift(version):
-    Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
-    peaks = pd.read_csv(f'C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/PeakAnalysis_{version}.csv')
+    Commercial = pd.read_csv("Commercial_cleaned_full.csv")
+    peaks = pd.read_csv(f'PeakAnalysis_{version}.csv')
     peaks["Datetime"] = pd.to_datetime(peaks["Datetime"])
     
     Commercial['Datetime'] = pd.to_datetime(Commercial['date'] + ' ' + Commercial['time'],format='%m/%d/%Y %I:%M:%S %p') 
@@ -87,7 +87,7 @@ def calculate_uplift(version):
     uplift_df = pd.DataFrame(uplift_results)
     final_output = pd.merge(uplift_df, Commercial, on='commercial_id', how='left')
     final_output = final_output[['Datetime', 'commercial_id', 'uplift', 'indexed_gross_rating_point','channel','position_in_break', 'program_cat_before', 'program_cat_after','flight_description','same_program','tag_ons']]
-    final_output.to_csv(f'C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/SHAPinput_{version}.csv', index=False)
+    final_output.to_csv(f'SHAPinput_{version}.csv', index=False)
 
     return uplift_df
 
