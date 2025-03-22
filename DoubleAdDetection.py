@@ -11,13 +11,6 @@ import numpy as np
 def filter_duplicates(data):
     # Load the Excel file
     df = data
-    # Define bins for grouping
-    bins = [0, 1, 3, 5, 10, 20, float('inf')]
-    labels = ["[0,1)", "[1,3)", "[3,5)", "[5,10)", "[10,20)", "[20,∞)"]
-
-    # Create a new column categorizing GRP into bins
-    df['GRP_group'] = pd.cut(df['indexed_gross_rating_point'], bins=bins, labels=labels, right=False)
-    
     grouped_ads = df.groupby(['date', 'time'])
 
     grp_percent_list = []
