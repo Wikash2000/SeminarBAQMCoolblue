@@ -1,76 +1,62 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jan 10 17:11:23 2025
-
-@author: 531725ns
-"""
-
 import pandas as pd
 import matplotlib.pyplot as plt
 
+"""
+This script compares total web visit trends before and after outlier removal.
+
+Key Step:
+
+1. **Compare Original vs. Outlier-Removed Data**:
+   - Loads original and cleaned datasets.
+   - Aggregates total web visits by timestamp.
+   - Plots both time series to visualize the impact of removing outliers.
+"""
+
+
+
 
 # Load the dataset
-data = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_with_product_types")
-datacl = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_cleaned_full.csv")
+data = pd.read_csv('web_data_with_product_types.csv')
+#data = pd.read_csv('web_data_outliers_removed.csv')
+#data = pd.read_csv('web_data_outlier_removed_incl_neg_peaks.csv')
+
 # Convert 'datetime' to a proper datetime object
 data['datetime'] = pd.to_datetime(data['datetime'])
-datacl['datetime'] = pd.to_datetime(datacl['datetime'])
+
+
+# Compute total visits for web and app
+total_web_visits = data['visits_web'].sum()
+total_app_visits = data['visits_app'].sum()
+grand_total_visits = total_web_visits + total_app_visits
+
+
 # ------------------------------------
-# Figure 1: Plot Total Web Visits (for the two-week interval)
+# Figure 1: Plot Total Web Visits (Original vs Outliers Removed)
 # ------------------------------------
+# Group by datetime and sum web visits for both datasets
+data_outliers_removed = pd.read_csv('web_data_outlier_removed_combined.csv')
+total_visits_original = data.groupby('datetime')['visits_web'].sum()
+total_visits_outliers_removed = data_outliers_removed.groupby('datetime')['visits_web'].sum()
 
-# Group by datetime only for total web visits (no product_type grouping)
-sumdata = data.groupby(['datetime'])[['visits_app', 'visits_web']].agg('sum').reset_index()
+# Create a new DataFrame for easy plotting
+comparison_df = pd.DataFrame({
+    'Original': total_visits_original,
+    'Outliers_Removed': total_visits_outliers_removed
+})
 
-# Create the plot for total web visits
-plt.figure(figsize=(15, 8))
+# Plot the total web visits comparison
+plt.figure(figsize=(12, 6))
 
-# Plot total web visits
-plt.plot(sumdata['datetime'], sumdata['visits_web'], label='Total Web Visits', color='black')
+plt.plot(comparison_df.index, comparison_df['Original'], label='Original Data', color='blue', linestyle='-')
+plt.plot(comparison_df.index, comparison_df['Outliers_Removed'], label='Outliers Removed', color='red', linestyle='--')
+
 # Add labels, title, and legend
 plt.xlabel('Datetime')
-plt.ylabel('Total Visits (Web)')
-plt.title('Total Web Visits Over Time ')
+plt.ylabel('Total Web Visits')
+plt.title('Comparison of Total Web Visits (Original vs Outliers Removed)')
+plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.grid(True)
 plt.tight_layout()
-plt.xlim(pd.Timestamp("2023-11-19 18:00:00"),pd.Timestamp("2023-11-19 23:00:00"))
 
-# Create the plot for cleaned total web visits
-plt.figure(figsize=(15, 8))
-# Plot cleaned total web visits
-plt.plot(datacl['datetime'], datacl['visits_web'], label='Total Web Visits Cleaned', color='black')
-# Add labels, title, and legend
-plt.xlabel('Datetime')
-plt.ylabel('Total Visits (Web)')
-plt.title('Cleaned Total Web Visits Over Time')
-plt.grid(True)
-plt.tight_layout()
-plt.xlim(pd.Timestamp("2023-11-19 18:00:00"),pd.Timestamp("2023-11-19 23:00:00"))
-# ------------------------------------
-# Figure 2: Plot Total App Visits (for the two-week interval)
-# ------------------------------------
-
-# Create the plot for total app visits
-plt.figure(figsize=(15, 8))
-
-# Plot total web visits
-plt.plot(sumdata['datetime'], sumdata['visits_app'], label='Total App Visits', color='black')
-# Add labels, title, and legend
-plt.xlabel('Datetime')
-plt.ylabel('Total Visits (App)')
-plt.title('Total App Visits Over Time ')
-plt.grid(True)
-plt.tight_layout()
-plt.xlim(pd.Timestamp("2023-11-18 18:00:00"),pd.Timestamp("2023-11-19 23:00:00"))
-
-# Create the plot for cleaned total app visits
-plt.figure(figsize=(15, 8))
-# Plot cleaned total web visits
-plt.plot(datacl['datetime'], datacl['visits_app'], label='Total App Visits Cleaned', color='black')
-# Add labels, title, and legend
-plt.xlabel('Datetime')
-plt.ylabel('Total Visits (App)')
-plt.title('Cleaned Total App Visits Over Time')
-plt.grid(True)
-plt.tight_layout()
-plt.xlim(pd.Timestamp("2023-11-18 18:00:00"),pd.Timestamp("2023-11-19 23:00:00"))
+# Show the plot
+plt.show()
