@@ -2,7 +2,7 @@
 """
 Created on Wed Feb  5 18:17:42 2025
 
-@author: 531725ns
+@author: nicho
 """
 
 """
@@ -95,7 +95,7 @@ for time_spot in datetime_list:
     data.loc[replace_indices, 'visits_web'] = np.clip(random_visits_web, a_min=0, a_max=None)
     data.loc[replace_indices, 'visits_app'] = np.clip(random_visits_app, a_min=0, a_max=None)
     
-data.to_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/web_data_cleaned_full.csv', index=False)
+data.to_csv('web_data_cleaned_full.csv', index=False)
 
 #----------------------------------------------------------------------------------------------------------------------------------
 #Modify Commercial data
@@ -105,4 +105,4 @@ DuplicateList = filter_duplicates(Commercials)
 
 Cleaned_data = remove_duplicates_from_commercials(Commercials, DuplicateList)
 
-Cleaned_data.to_csv('C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv', index=False)
+Cleaned_data.to_csv('Commercial_cleaned_full.csv', index=False)
