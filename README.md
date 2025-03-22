@@ -22,7 +22,7 @@ Below, we outline the purpose of each file in this repository and provide the co
 - ## *initialAnalysisWebData.py*  
   This file provides visualizations of the web data, which are also included in the report. 
 
-- ## *GRP_Distribution_and_DailyCounts.py*  
+- ## *initialAnalysisCommercialData*  
   Plots histograms describing the distribution and daily volume of commercial data.
  
 - ## *STA_Analysis.py*  
