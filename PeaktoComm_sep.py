@@ -5,8 +5,12 @@ Created on Wed Feb 19 17:55:57 2025
 @author: 531725ns
 """
 
-import pandas as pd
+"""
+This file takes as input the predicted traffic and the counterfactual traffic and calculates the uplift caused by individual commercials.
+For overlapping commercials, uplift is assigned proportionally to GRP.
+"""
 
+import pandas as pd
 
 def calculate_uplift(version):
     Commercial = pd.read_csv("C:/Users/nicho/OneDrive - Erasmus University Rotterdam/Master/Seminar/Commercial_cleaned_full.csv")
@@ -40,16 +44,17 @@ def calculate_uplift(version):
         actual_traffic = row['Actual Prediction']
         counterfactual_traffic = row['CF Prediction']
         uplift = actual_traffic - counterfactual_traffic
+
         
         if in_uplift_period:
-            if uplift > 0.001:
+            if uplift > 0.001: #Otherwise the peak is practically over
                 uplift_sum += uplift  # Accumulate the uplift
                 
                 # Track commercials airing during this period
                 if row['commercial'] == 1 and row['commercial_id'] not in active_commercials:
                     active_commercials.append(row["commercial_id"])  # Add commercial airing in this period
                     active_viewership.append(row['indexed_gross_rating_point'])  # Track its viewership
-                    
+            #If not, end the peak        
             else:
                 if len(active_commercials) > 0:
                     total_viewership = sum(active_viewership)
@@ -57,7 +62,7 @@ def calculate_uplift(version):
                         commercial_index = active_commercials[i]
                         viewership = active_viewership[i]
                         if total_viewership > 0:
-                            commercial_uplift = uplift_sum * (viewership / total_viewership)
+                            commercial_uplift = uplift_sum * (viewership / total_viewership) #Assign proportional to GRP
                         else:
                             commercial_uplift = uplift_sum
                         # Append the result for the current commercial
@@ -86,11 +91,9 @@ def calculate_uplift(version):
 
     return uplift_df
 
-
-version = "visits_web_scaled"
+#Select the outcome variable
+version = "visits_web_scaled" 
 #version = "visits_app_scaled"
 
 uplift_df = calculate_uplift(version)
-# Example usage with your data (assuming your data is loaded into a DataFrame 'data'):
-
 print(uplift_df)
